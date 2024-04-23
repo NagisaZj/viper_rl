@@ -118,6 +118,18 @@ class UniformRelabel(generic.Generic):
             return
         elif not next_step_processed:
             seq = self.reward_model(tuple(stream))
+            # print('eeee',seq[-1]['prediction'])
+            # print('rrrr',seq['prediction'])
+            
+            # print('eeee')
+            # d=[]
+            # p=[]
+            # for i in range(len(seq)):
+            #     d.append(seq[i]['density'])
+            #     p.append(seq[i]['prediction'])
+            # print(np.mean(d),np.mean(p))
+            
+            # print(seq[-1]['representation'].mean(),seq[-1]['prediction'].mean(),seq[-1]['density'])#,seq[0]['representation'][0,0,:4],seq[0]['prediction'][0,0,:4]
         elif seq_has_last_step:
             split_idx = 0
             for i in range(len(stream)):
@@ -158,6 +170,9 @@ class UniformRelabel(generic.Generic):
             try:
                 # Compute likelihoods for entire episode and save it.
                 episode = self.reward_model(episode)
+                print('eeee',episode[-1]['prediction'])
+                print('rrrr',episode['prediction'])
+                # print('e',episode[-1]['representation'][:4],episode[-1]['prediction'][:4],episode[-1]['density'])
             except Exception as err:
                 print(f"{type(err).__name__} was raised: {err}. Skipping sequence.")
                 self.episode_streams[worker] = []

@@ -18,7 +18,7 @@ defaults:
     prealloc: True
     debug_nans: False
     logical_cpus: 0
-    debug: False
+    debug: True
     policy_devices: [0]
     train_devices: [0]
     reward_model_device: 0
@@ -78,8 +78,18 @@ defaults:
   decoder: {mlp_keys: '.*', cnn_keys: '.*', act: silu, norm: layer, mlp_layers: 5, mlp_units: 1024, cnn: resnet, cnn_depth: 96, cnn_blocks: 0, image_dist: mse, vector_dist: symlog_mse, inputs: [deter, stoch], resize: stride, winit: normal, fan: avg, outscale: 1.0, minres: 4, cnn_sigmoid: False}
   reward_head: {layers: 5, units: 1024, act: silu, norm: layer, dist: symlog_disc, outscale: 0.0, outnorm: False, inputs: [deter, stoch], winit: normal, fan: avg, bins: 255}
   density_head: {layers: 5, units: 1024, act: silu, norm: layer, dist: symlog_disc, outscale: 0.0, outnorm: False, inputs: [deter, stoch], winit: normal, fan: avg, bins: 255}
+  bc_reward: {layers: 5, units: 1024, act: silu, norm: layer, dist: mse, outscale: 0.0, outnorm: False, inputs: [deter, stoch], winit: normal, fan: avg, bins: 255}
+  # inverse_model: {layers: 5, units: 1024, act: silu, norm: layer, minstd: 0.1, maxstd: 1.0, outscale: 1.0, outnorm: False, unimix: 0.01, inputs: [deter, stoch,prev_deter,prev_stoch], winit: normal, fan: avg, symlog_inputs: False}
+  embedding_encoder: {layers: 5, units: 16, act: silu, norm: layer, dist: mse, outscale: 0.0, outnorm: False, inputs: [representation], winit: normal, fan: avg, bins: 255}
+  # embedding_encoder: {mlp_keys: '.*', cnn_keys: 'representation', act: silu, norm: layer, mlp_layers: 5, mlp_units: 1024, cnn: resnet, cnn_depth: 64, cnn_blocks: 0, resize: stride, winit: normal, fan: avg, symlog_inputs: True, minres: 4}
+  # inverse_model: {mlp_keys: 'prev_deter|prev_stoch', cnn_keys: 'goal', act: silu, norm: layer, mlp_layers: 5, mlp_units: 1024, cnn: resnet, cnn_depth: 96, cnn_blocks: 0, resize: stride, winit: normal, fan: avg, symlog_inputs: False, minres: 4, inputs: [deter, stoch,goal]}
+  # reward_head: {layers: 5, units: 1024, act: silu, norm: layer, dist: symlog_disc, outscale: 0.0, outnorm: False, inputs: [deter, stoch], winit: normal, fan: avg, bins: 255}
+  inverse_model: {layers: 5, units: 1024, act: silu, norm: layer, minstd: 0.1, maxstd: 1.0, outscale: 1.0, outnorm: False, unimix: 0.01, inputs: [prev_deter,prev_stoch,goal], winit: normal, fan: avg, symlog_inputs: False} #
+  action_predictor: {layers: 5, units: 1024, act: silu, norm: layer, minstd: 0.1, maxstd: 1.0, outscale: 1.0, outnorm: False, unimix: 0.01, inputs: [prev_deter,prev_stoch], winit: normal, fan: avg, symlog_inputs: False} #
+  representation_model: {layers: 5, units: 1024, act: silu, norm: layer, minstd: 0.1, maxstd: 1.0, outscale: 1.0, outnorm: False, unimix: 0.01, inputs: [deter,stoch], winit: normal, fan: avg, symlog_inputs: False} 
+  prediction_model: {layers: 5, units: 1024, act: silu, norm: layer, minstd: 0.1, maxstd: 1.0, outscale: 1.0, outnorm: False, unimix: 0.01, inputs: [prev_deter,prev_stoch], winit: normal, fan: avg, symlog_inputs: False} 
   cont_head: {layers: 5, units: 1024, act: silu, norm: layer, dist: binary, outscale: 1.0, outnorm: False, inputs: [deter, stoch], winit: normal, fan: avg}
-  loss_scales: {image: 1.0, vector: 1.0, reward: 1.0, density: 1.0, cont: 1.0, dyn: 0.5, rep: 0.1, actor: 1.0, critic: 1.0, slowreg: 1.0, mp_amp: 1.0, mp_amp_gp: 1.0, discriminator_reward: 1.0}
+  loss_scales: {image: 1.0, vector: 1.0, reward: 1.0, density: 1.0, cont: 1.0, dyn: 0.5, rep: 0.1, actor: 1.0, critic: 1.0, slowreg: 1.0, mp_amp: 1.0, mp_amp_gp: 1.0, discriminator_reward: 1.0, inverse: 1.0,action_prediction: 1.0, bc_reward: 1.0}
   dyn_loss: {impl: kl, free: 1.0}
   rep_loss: {impl: kl, free: 1.0}
   model_opt: {opt: adam, lr: 1e-4, eps: 1e-8, clip: 1000.0, wd: 0.0, warmup: 0, lateclip: 0.0}
@@ -97,7 +107,7 @@ defaults:
   critic_type: vfunction
   imag_horizon: 15
   imag_unroll: False
-  horizon: 333
+  horizon: 100
   return_lambda: 0.95
   critic_slowreg: logprob
   slow_critic_update: 1
@@ -113,7 +123,7 @@ defaults:
   disag_models: 8
 
   # Prior
-  prior_rewards: {extr: 1.0, density: 1.0, disag: 0.0}
+  prior_rewards: {extr: 1.0, density: 1.0, disag: 0.0, bc_reward: 1.0}
   reward_model: none
   reward_model_batch_size: 32
   reward_model_compute_joint: True
@@ -126,11 +136,15 @@ defaults:
   amp_window: 5
 
 videogpt_prior_rb:
-  task_behavior: Prior
-  grad_heads: [decoder, density, cont]
-  prior_rewards: {extr: 0.0, density: 1.0, disag: 1.0}
+  task_behavior: Prior # Prior MyPrior2
+  # grad_heads: [decoder, density, cont]
+  # prior_rewards: {extr: 0.0, density: 1.0, disag: 1.0}
+  grad_heads: [decoder, density, cont] #, bc_reward]
+  prior_rewards: {extr: 0, density: 1.0, disag: 1.0, bc_reward: 1.0}
   wrapper.density: True
   replay: uniform_relabel
+  # wrapper.density: False
+  # replay: uniform
 
   run:
     log_keys_max: '^log_.*'
@@ -258,7 +272,7 @@ dmc_vision:
   .*\.layers: 2
   .*\.units: 512
   encoder: {mlp_keys: '$^', cnn_keys: 'image'}
-  decoder: {mlp_keys: '$^', cnn_keys: 'image'}
+  decoder: {mlp_keys: '$^', cnn_keys: 'image'} # prediction|representation
 
 dmc_proprio:
 

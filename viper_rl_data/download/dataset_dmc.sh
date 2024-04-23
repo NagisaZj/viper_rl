@@ -14,7 +14,7 @@ cd $DATA_DIR
 
 for i in aa ab ac ad ae
 do
-    ia download dmc_dataset_$i dmc.tar.part$i
+    # ia download dmc_dataset_$i dmc.tar.part$i
     mv dmc_dataset_$i/dmc.tar.part$i .
     rmdir dmc_dataset_$i
 done

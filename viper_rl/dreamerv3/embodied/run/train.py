@@ -41,6 +41,9 @@ def train(agent, env, replay, logger, args):
             prefix="episode",
         )
         print(f"Episode has {length} steps and return {score:.1f}.")
+        # if score > 0 and length==1000:
+        #     a=np.random.randint(10000)
+        #     np.save(f'/data/zj/viper_rl/viper_rl_data/mydata/buffer/quadruped_run/{a}_{score:.1f}.npy',ep)
         stats = {}
         for key in args.log_keys_video:
             if key in ep:

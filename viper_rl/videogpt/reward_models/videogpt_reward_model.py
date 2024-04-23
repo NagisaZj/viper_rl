@@ -11,18 +11,371 @@ import argparse
 from ..models import load_videogpt, AE
 from .. import sampler
 
+# import sys
+# sys.path.append('/data/zj/AVDC2/flowdiffusion')
+# sys.path.append('/data/zj/AVDC2')
+
+# import os
+# os.environ['ACCELERATE_TORCH_DEVICE']='cuda:1'
+
+# from goal_diffusion import GoalGaussianDiffusion, Trainer
+# from unet import UnetMW as Unet
+# from transformers import CLIPTextModel, CLIPTokenizer
+# from dmc_datasets import SequentialDatasetv2
+# from torch.utils.data import Subset
+# import argparse
+# from torchvideotransforms import video_transforms, volume_transforms
+
+
+# import torch
+# import torchvision.models as models
+# from torchvision.transforms import Normalize
 tree_map = jax.tree_util.tree_map
 sg = lambda x: tree_map(jax.lax.stop_gradient, x)
 
 class InvalidSequenceError(Exception):
     def __init__(self, message):            
         super().__init__(message)
+        
+# # class ResNet(nn.Module):
+# #     def __init__(self, base_encoder=models.__dict__['resnet50']):
+# #         super(ResNet, self).__init__()
+# #         self.encoder = base_encoder(num_classes=1000, pretrained=True)
+# #         self.img_norm = Normalize(mean=torch.tensor([0.485, 0.456, 0.406]),
+# #                                     std=torch.tensor([0.229, 0.224, 0.225]))
+
+# #     def forward(self, obs, spacial=True, normalize=True):
+# #         obs = obs[:,-3:]/255.0
+# #         if normalize:
+# #             obs = self.img_norm(obs)
+# #         if not spacial:
+# #             h = self.encoder(obs)
+# #             h = h.view(obs.shape[0], -1)
+# #             return h
+# #         else:
+# #             h = obs
+# #         i = 0
+# #         for m in list(self.encoder.children()):
+# #             i += 1
+# #             if i <= 8:
+# #                 h = m(h)
+# #         h = h.view(obs.shape[0], -1)
+# #         return h
+
+# class UniPiRewardModel:
+
+#     PRIVATE_LIKELIHOOD_KEY = 'log_immutable_density'
+#     PUBLIC_LIKELIHOOD_KEY = 'density'
+#     PRIVATE_REPRESENTATION_KEY = 'private_representation'
+#     PUBLIC_REPRESENTATION_KEY = 'representation'
+#     PRIVATE_PREDICTION_KEY = 'private_prediction'
+#     PUBLIC_PREDICTION_KEY = 'prediction'
+    
+
+#     def __init__(self, task: str, vqgan_path: str, videogpt_path: str,
+#                  camera_key: str='image',
+#                  reward_scale: Optional[Union[Dict[str, Tuple], Tuple]]=None,
+#                  reward_model_device: int=0,
+#                  nll_reduce_sum: bool=True,
+#                  compute_joint: bool=True,
+#                  minibatch_size: int=64,
+#                  encoding_minibatch_size: int=64):
+#         """VideoGPT likelihood model for reward computation.
+
+#         Args:
+#             task: Task name, used for conditioning when class_map.pkl exists in videogpt_path.
+#             vqgan_path: Path to vqgan weights.
+#             videogpt_path: Path to videogpt weights.
+#             camera_key: Key for camera observation.
+#             reward_scale: Range to scale logits from [0, 1].
+#             reward_model_device: Device to run reward model on.
+#             nll_reduce_sum: Whether to reduce sum over nll.
+#             compute_joint: Whether to compute joint likelihood or use conditional.
+#             minibatch_size: Minibatch size for VideoGPT.
+#             encoding_minibatch_size: Minibatch size for VQGAN.
+#         """
+#         self.domain, self.task = task.split('_', 1)
+#         self.vqgan_path = vqgan_path
+#         self.videogpt_path = videogpt_path
+#         self.camera_key = camera_key
+#         self.reward_scale = reward_scale
+#         self.nll_reduce_sum = nll_reduce_sum
+#         self.compute_joint = compute_joint
+#         self.minibatch_size = minibatch_size
+#         self.encoding_minibatch_size = encoding_minibatch_size
+
+        
+        
+#         # Load VQGAN and VideoGPT weights.
+#         self.device = jax.devices()[reward_model_device]
+#         print(f'Reward model devices: {self.device}')
+        
+#         train_set = valid_set = [None]
+#         valid_n = 1
+#         sample_per_seq = 16
+#         target_size = (64, 64)
+#         # self.torch_device = 
+#         unet = Unet()
+#         pretrained_model = "openai/clip-vit-base-patch32"
+#         # tokenizer = CLIPTokenizer.from_pretrained(pretrained_model)# ,cache_dir='/home/zj/.cache/huggingface2/'
+#         # text_encoder = CLIPTextModel.from_pretrained(pretrained_model)# ,cache_dir='/home/zj/.cache/huggingface2/'
+#         tokenizer = CLIPTokenizer.from_pretrained('/home/zj/.cache/huggingface3/hub/models--openai--clip-vit-base-patch32/snapshots/3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268/')
+#         text_encoder = CLIPTextModel.from_pretrained('/home/zj/.cache/huggingface3/hub/models--openai--clip-vit-base-patch32/snapshots/3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268/')
+#         text_encoder.requires_grad_(False)
+#         text_encoder.eval()
+        
+#         diffusion = GoalGaussianDiffusion(
+#         channels=3,
+#         model=unet,
+#         image_size=target_size,
+#         timesteps=100,
+#         sampling_timesteps=10,
+#         loss_type='l2',
+#         objective='pred_v',
+#         beta_schedule = 'cosine',
+#         min_snr_loss_weight = True,
+#         )
+#         self.trainer = Trainer(
+#         diffusion_model=diffusion,
+#         tokenizer=tokenizer, 
+#         text_encoder=text_encoder,
+#         train_set=train_set,
+#         valid_set=valid_set,
+#         train_lr=1e-4,
+#         train_num_steps =240000,
+#         save_and_sample_every =2500,
+#         ema_update_every = 10,
+#         ema_decay = 0.999,
+#         train_batch_size =2,
+#         valid_batch_size =2,
+#         gradient_accumulate_every = 8,
+#         num_samples=valid_n, 
+#         results_folder ='/data/zj/AVDC2/results/viper_10',
+#         fp16 =True,
+#         amp=True,
+#         )
+#         # trainer.to(torch.device('cuda:1'))
+#         # print(trainer.device)
+#         self.trainer.load(95)
+#         self.trainer.ema.ema_model.eval()
+#         self.transform = video_transforms.Compose([
+#                 volume_transforms.ClipToTensor()
+#             ])
+        
+#         self.ae = AE(path=vqgan_path, mode='jit')
+#         self.ae.ae_vars = jax.device_put(self.ae.ae_vars, self.device)
+        
+
+        
+#         # self.model, variables, self.class_map = load_videogpt(videogpt_path, ae=self.ae, replicate=False)
+#         # config = self.model.config
+#         # self.sampler = sampler.VideoGPTSampler(self.model, mode='jit')
+#         # self.variables = jax.device_put(variables, self.device)
+
+#         # self.model_name = config.model
+#         # self.n_skip = getattr(config, 'frame_skip', 1)
+#         # self.class_cond = getattr(config, 'class_cond', False)
+#         self.seq_len = 1
+#         self.seq_len_steps = self.seq_len
+
+        
+#         # self.encoder = ResNet(base_encoder=models.__dict__['resnet50']).to(self.device)
+#         # self.encoder.eval()
+#         # # Load frame mask.
+#         # if self.ae.mask_map is not None:
+#         #     self.mask = self.ae.mask_map[self.task]
+#         #     print(f'Loaded mask for task {self.task} from mask_map with keys: {self.ae.mask_map.keys()}')
+#         #     self.mask = jax.device_put(self.mask.astype(np.uint8), self.device)
+#         # else:
+#         #     self.mask = None
+
+#         # # Load task id.
+#         # if self.class_cond and self.class_map is not None:
+#         #     self.task_id = None
+#         #     print(f'Available tasks: {list(self.class_map.keys())}')
+#         #     assert (self.task in self.class_map,
+#         #             f'{self.task} not found in class map.')
+#         #     self.task_id = int(self.class_map[self.task])
+#         #     print(f'Loaded conditioning information for task {self.task}')
+#         # elif self.class_cond:
+#         #     raise ValueError(
+#         #         f'No class_map for class_conditional model. '
+#         #         f'VideoGPT loaded class_map? {self.class_map is not None}')
+#         # else:
+#         #     self.task_id = None
+
+#         # print(
+#         #     f'finished loading {self.__class__.__name__}:'
+#         #     f'\n\tseq_len: {self.seq_len}'
+#         #     f'\n\tclass_cond: {self.class_cond}'
+#         #     f'\n\ttask: {self.task}'
+#         #     f'\n\tmodel: {self.model_name}'
+#         #     f'\n\tcamera_key: {self.camera_key}'
+#         #     f'\n\tseq_len_steps: {self.seq_len_steps}'
+#         #     f'\n\tmask? {self.mask is not None}'
+#         #     f'\n\ttask_id: {self.task_id}'
+#         #     f'\n\tn_skip? {self.n_skip}')
+
+#     def __call__(self, seq, **kwargs):
+#         return self.process_seq(self.compute_reward(seq, **kwargs), **kwargs)
+
+
+
+#     def compute_reward(self, seq: List[Dict[str, Any]]):
+#         """Use VGPT model to compute likelihoods for input sequence.
+#         Args:
+#             seq: Input sequence of states.
+#         Returns:
+#             seq: Input sequence with additional keys in the state dict.
+#         """
+#         text = 'quadruped_run'
+        
+#         start_idx = 0
+#         for i in range(self.seq_len_steps - 1, len(seq)):
+#             if not self.is_step_processed(seq[i]):
+#                 start_idx = i
+#                 break
+#         start_idx = int(max(start_idx - self.seq_len_steps + 1, 0))
+#         T = len(seq) - start_idx
+
+#         # Compute encodings and embeddings for image sequence.
+#         image_batch = np.stack([seq[i][self.camera_key] for i in range(start_idx, len(seq))])
+#         target_batch = np.concatenate([image_batch[1:],image_batch[-1:]],0)
+#         tb = target_batch
+
+#         target_encodings = self.ae.encode(jnp.expand_dims(target_batch, axis=0))[0]
+#         target_embeddings = self.ae.lookup(target_encodings)
+        
+#         rng = self.agent._next_rngs(self.agent.train_devices)
+#         # mets, _ = self._report(self.varibs, rng, data, reference_data)
+#         te,_ = self.agent._encode(self.agent.varibs, rng,{'image':target_batch})
+#         # print(te)
+
+
+#         guidance_weight = 0
+#         image = image_batch
+#         # print(image.shape)
+#         batch_size = image_batch.shape[0]
+#         assert batch_size %1==0
+#         length = int(batch_size/1)
+#         ### 231130 fixed center crop issue 
+#         # print(image.shape)
+#         image = self.transform(image)# [c f h w]
+        
+#         # image_batch_1 = torch.cat([image[:,0:1],image[:,:-1]],0)
+#         # image_batch_2 = torch.cat([image[:,0:1],image_batch_1[:,:-1]],0)
+#         # # image_batch_3 = torch.cat([image[0:1],image_batch_2[:-1]],0)
+#         # # image_batch = torch.cat([image_batch_3,image_batch_2,image_batch_1,image],1)
+#         # image_batch = torch.cat([image_batch_2,image_batch_1,image],1)
+#         # image = image_batch
+        
+        
+#         image=image.transpose(0,1)
+#         # print(image.shape)
+        
+#         image_batch_1 = torch.cat([image[0:1],image[:-1]],0)
+#         image_batch_2 = torch.cat([image[0:1],image_batch_1[:-1]],0)
+#         # image_batch_3 = torch.cat([image[0:1],image_batch_2[:-1]],0)
+#         # image_batch = torch.cat([image_batch_3,image_batch_2,image_batch_1,image],1)
+#         image_batch = torch.cat([image_batch_2,image_batch_1,image],1)
+#         image = image_batch
+#         # print(image.shape)
+        
+        
+#         target_size = image.shape[2:]
+#         rews = []
+#         target_batch = self.transform(target_batch)
+#         target_batch=target_batch.transpose(0,1)
+#         for i in range(1):
+#             # output = self.trainer.sample(image[length*i:(i+1)*length], [text]*length, length, guidance_weight).cpu()
+#             s=self.trainer.encode_batch_text(text)
+#             # print(s.shape)
+#             output = self.trainer.ema.ema_model.sample(batch_size=length, x_cond=image[length*i:(i+1)*length].to(self.trainer.device), task_embed=torch.cat([s]*length,0)).cpu()
+#             # print(output.shape)
+#             output = output.reshape(length,-1, 3, *target_size)
+#             rew = ((output[:,0]-target_batch[length*i:(i+1)*length])**2).sum(-1)*-255
+#             # print(output[:,0][-1,1,31],target_batch[-1,1,31],image[-1,1,31])
+#             # print(rew.shape)
+            
+            
+#             output_numpy = (output[:,0].permute(0,2,3,1).data.numpy().clip(0, 1)*255).astype(np.uint8)
+#             my_encodings = self.ae.encode(jnp.expand_dims(output_numpy, axis=0))[0]
+#             my_embeddings = self.ae.lookup(my_encodings)
+#             rng = self.agent._next_rngs(self.agent.train_devices)
+#             me,_ = self.agent._encode(self.agent.varibs, rng,{'image':output_numpy})
+#             rew = ((te[0]-me[0])**2).reshape(length,-1).sum(-1)*-1+((te[1]-me[1])**2).reshape(length,-1).sum(-1)*-1
+            
+            
+#             # import matplotlib.pyplot as plt
+#             # print(output_numpy.dtype,tb.dtype,output_numpy[0,0,0],tb[0,0,0])
+#             # plt.imshow(output_numpy[0])
+#             # plt.show()
+#             # plt.savefig('/data/zj/viper_rl/notebooks/' + '1.jpg')
+#             # plt.imshow(tb[0])
+#             # plt.show()
+#             # plt.savefig('/data/zj/viper_rl/notebooks/' + '2.jpg')
+#             # print(rew.shape)
+#             while len(rew.shape)>1:
+#                 rew = rew.sum(-1)
+#             rews.append(rew)
+            
+#         # import imageio
+#         # output = torch.cat([image[-10:-9,-3:],target_batch[-10:-9,-3:], output[-10:-9,0]], dim=0)
+#         # # print(output.shape,image.shape,target_batch.shape,output.shape)
+#         # output_gif = '/data/zj/viper_rl/notebooks/' + '_out.gif'
+#         # output = (output.cpu().numpy().transpose(0, 2, 3, 1).clip(0, 1) * 255).astype('uint8')
+#         # imageio.mimsave('/data/zj/viper_rl/notebooks/' + 'out1.gif', output[0:1], duration=200, loop=1000)
+#         # imageio.mimsave('/data/zj/viper_rl/notebooks/' + 'out2.gif', output[1:2], duration=200, loop=1000)
+#         # imageio.mimsave('/data/zj/viper_rl/notebooks/' + 'out3.gif', output[2:3], duration=200, loop=1000)
+#         # # print(output[4:5])
+#         # imageio.mimsave('/data/zj/viper_rl/notebooks/' + 'out4.gif', output[3:4], duration=200, loop=1000)
+        
+        
+#         rew = np.concatenate(rews,-1)
+#         for i, rew in enumerate(rew):
+#             idx = start_idx + self.seq_len_steps - 1 + i
+#             assert not self.is_step_processed(seq[idx])
+#             seq[idx][VideoGPTRewardModel.PRIVATE_LIKELIHOOD_KEY] = rew
+#             seq[idx][VideoGPTRewardModel.PRIVATE_REPRESENTATION_KEY] = rew
+#             seq[idx][VideoGPTRewardModel.PRIVATE_PREDICTION_KEY] = rew
+
+#         return seq
+
+#     def expand_scalar(self, scalar, size, dtype):
+#         if scalar is None: return None
+#         return jnp.array([scalar] * size, dtype=dtype)
+
+#     def is_step_processed(self, step):
+#         return VideoGPTRewardModel.PRIVATE_LIKELIHOOD_KEY in step.keys()
+
+#     def is_seq_processed(self, seq):
+#         for step in seq:
+#             if not self.is_step_processed(step):
+#                 return False
+#         return True
+
+#     def process_seq(self, seq):
+#         i=0
+#         for step in seq:
+#             i+=1
+#             if not self.is_step_processed(step):
+#                 continue
+#             step[VideoGPTRewardModel.PUBLIC_LIKELIHOOD_KEY] = step[VideoGPTRewardModel.PRIVATE_LIKELIHOOD_KEY]# if i % 4==0 else 0
+#             step[VideoGPTRewardModel.PUBLIC_REPRESENTATION_KEY] = step[VideoGPTRewardModel.PRIVATE_REPRESENTATION_KEY]# if i % 4==0 else 0
+#             step[VideoGPTRewardModel.PUBLIC_PREDICTION_KEY] = step[VideoGPTRewardModel.PRIVATE_PREDICTION_KEY]# if i % 4==0 else 0
+#         return seq[self.seq_len_steps - 1:]
+
 
 
 class VideoGPTRewardModel:
 
     PRIVATE_LIKELIHOOD_KEY = 'log_immutable_density'
     PUBLIC_LIKELIHOOD_KEY = 'density'
+    PRIVATE_REPRESENTATION_KEY = 'private_representation'
+    PUBLIC_REPRESENTATION_KEY = 'representation'
+    PRIVATE_PREDICTION_KEY = 'private_prediction'
+    PUBLIC_PREDICTION_KEY = 'prediction'
+    
 
     def __init__(self, task: str, vqgan_path: str, videogpt_path: str,
                  camera_key: str='image',
@@ -87,6 +440,7 @@ class VideoGPTRewardModel:
             assert (self.task in self.class_map,
                     f'{self.task} not found in class map.')
             self.task_id = int(self.class_map[self.task])
+            print(self.class_map)
             print(f'Loaded conditioning information for task {self.task}')
         elif self.class_cond:
             raise ValueError(
@@ -151,37 +505,59 @@ class VideoGPTRewardModel:
             encodings = encodings[:, self.n_skip - 1::self.n_skip]
             embeddings = embeddings[:, self.n_skip - 1::self.n_skip]
             print(f'\tAfter applying frame skip: Embeddings shape: {embeddings.shape}, Encodings shape: {encodings.shape}')
-        likelihoods = self.model.apply(
-            variables, embeddings, encodings, label=label, reduce_sum=self.nll_reduce_sum,
-            method=self.model.log_prob)
+        # likelihoods,predictions = self.model.apply(
+            # variables, embeddings, encodings, label=label, reduce_sum=self.nll_reduce_sum,
+            # method=self.model.log_prob)
+        likelihoods,predictions = self.model.apply(
+            variables, embeddings, encodings, label=label, reduce_sum=self.nll_reduce_sum,ae=self.ae,
+            method=self.model.my_reward3)
+        print(likelihoods.shape,predictions.shape)
+        # print(likelihoods.mean(),likelihoods2.mean())
+        self.compute_joint = False
         if self.compute_joint:
             ll = likelihoods.sum(-1)
         else:
             ll = likelihoods[:, -1]
-        return ll
+        # print(likelihoods.shape,ll.shape,predictions.shape)
+        
+        return ll,predictions[:,-1,...]
 
     @functools.partial(jax.jit, static_argnums=(0,))
     def _compute_likelihood_for_initial_elements(self, variables, embeddings, encodings, label):
         print(f'Tracing init frame likelihood: Embeddings shape: {embeddings.shape}, Encodings shape: {encodings.shape}')
+        # print(embeddings[0,0,0,0,:4],encodings[0,0,0,:4])
         if self.n_skip > 1:
             first_encodings = jnp.concatenate([encodings[:1, i::self.n_skip] for i in range(self.n_skip)], axis=0)
             first_embeddings = jnp.concatenate([embeddings[:1, i::self.n_skip] for i in range(self.n_skip)], axis=0)
             print(f'\tAfter applying frame skip: Embeddings shape: {first_embeddings.shape}, Encodings shape: {first_encodings.shape}')
         else:
             first_encodings, first_embeddings = encodings[:1], embeddings[:1]
-        likelihoods = self.model.apply(
-            variables, first_embeddings, first_encodings, label=label, reduce_sum=self.nll_reduce_sum,
-            method=self.model.log_prob)
+        # likelihoods,predictions = self.model.apply(
+            # variables, first_embeddings, first_encodings, label=label, reduce_sum=self.nll_reduce_sum,
+            # method=self.model.log_prob)
+        likelihoods,predictions = self.model.apply(
+            variables, first_embeddings, first_encodings, label=label, reduce_sum=self.nll_reduce_sum,ae=self.ae,
+            method=self.model.my_reward3)
         if self.n_skip > 1:
             idxs = np.arange(len(likelihoods.shape))
             idxs[0] = 1
             idxs[1] = 0
             ll = likelihoods.transpose(idxs.tolist()).reshape((-1,) + likelihoods.shape[2:])[:-1]
+            
+            idxs = np.arange(len(predictions.shape))
+            idxs[0] = 1
+            idxs[1] = 0
+            pp = predictions.transpose(idxs.tolist()).reshape((-1,) + predictions.shape[2:])[:-1]
         else:
             ll = likelihoods[0, :-1]
+            pp = predictions[0, :-1]
+        print('initial',likelihoods.shape,ll.shape)
+        self.compute_joint = False
         if self.compute_joint:
             ll = jnp.cumsum(ll) / jnp.arange(1, len(ll) + 1)
-        return ll
+        print('initial',ll.shape)
+        # print(likelihoods.shape,ll.shape,pp.shape)
+        return ll,pp
             
     def _reward_scaler(self, reward):
         if self.reward_scale:
@@ -219,42 +595,72 @@ class VideoGPTRewardModel:
         encodings = self.ae.encode(jnp.expand_dims(image_batch, axis=0))
         embeddings = self.ae.lookup(encodings)
         encodings, embeddings = encodings[0], embeddings[0]
+        encodings = jnp.concatenate([encodings,encodings[-1:],encodings[-1:],encodings[-1:],encodings[-1:]],0)
+        embeddings = jnp.concatenate([embeddings,embeddings[-1:],embeddings[-1:],embeddings[-1:],embeddings[-1:]],0)
 
         # Compute batch of encodings and embeddings for likelihood computation.
         idxs = list(range(T - self.seq_len + 1))
-        batch_encodings = [encodings[idx:(idx + self.seq_len)] for idx in idxs]
-        batch_embeddings = [embeddings[idx:(idx + self.seq_len)] for idx in idxs]
+        # idxs = list(range(1,T - self.seq_len + 2))
+        batch_encodings = [encodings[idx:(idx + self.seq_len+(self.n_skip*1))] for idx in idxs]
+        batch_embeddings = [embeddings[idx:(idx + self.seq_len+(self.n_skip*1))] for idx in idxs]
         batch_encodings = jax.device_put(jnp.stack(batch_encodings), self.device)
         batch_embeddings = jax.device_put(jnp.stack(batch_embeddings), self.device)
 
         rewards = []
+        representations = []
+        predictions = []
         for i in range(0, len(idxs), self.minibatch_size):
             mb_encodings = batch_encodings[i:(i + self.minibatch_size)]
             mb_embeddings = batch_embeddings[i:(i + self.minibatch_size)]
             mb_label = self.expand_scalar(label, mb_encodings.shape[0], jnp.int32)
-            rewards.append(sg(self._compute_likelihood(
-                self.variables, mb_embeddings, mb_encodings, mb_label)))
+            r,prediction = self._compute_likelihood(
+                self.variables, mb_embeddings, mb_encodings, mb_label)
+            rewards.append(sg(r))
+            # print(mb_embeddings.shape)
+            representations.append(sg(mb_encodings[:,-2,...]))
+            predictions.append(sg(prediction))
         rewards = jnp.concatenate(rewards, axis=0)
+        representations = jnp.concatenate(representations, axis=0)
+        predictions = jnp.concatenate(predictions, axis=0)
+        representations = representations#.reshape([*representations.shape[:-2],-1])
+        predictions = predictions#.reshape([*predictions.shape[:-2],-1])
+        # print('rewards',rewards.shape,representations.shape,predictions.shape)
         if len(rewards.shape) <= 1:
             rewards = self._reward_scaler(rewards)
         assert len(rewards) == (T - self.seq_len_steps + 1), f'{len(rewards)} != {T - self.seq_len_steps + 1}'
         for i, rew in enumerate(rewards):
             idx = start_idx + self.seq_len_steps - 1 + i
             assert not self.is_step_processed(seq[idx])
+            # print('middle',representations[i].shape,predictions[i].shape)
             seq[idx][VideoGPTRewardModel.PRIVATE_LIKELIHOOD_KEY] = rew
+            seq[idx][VideoGPTRewardModel.PRIVATE_REPRESENTATION_KEY] = representations[i]#.astype(jnp.float16)#.flatten()
+            seq[idx][VideoGPTRewardModel.PRIVATE_PREDICTION_KEY] = predictions[i]#.astype(jnp.float16)#.flatten()
 
         if seq[0]['is_first']:
             first_encodings = batch_encodings[:1]
             first_embeddings = batch_embeddings[:1]
             first_label = self.expand_scalar(label, first_encodings.shape[0], jnp.int32)
-            first_rewards = sg(self._compute_likelihood_for_initial_elements(
-                self.variables, first_embeddings, first_encodings, first_label))
+            r,prediction = self._compute_likelihood_for_initial_elements(
+                self.variables, first_embeddings, first_encodings, first_label)
+            first_rewards = sg(r)
+            prediction = sg(prediction)
+            
+            idxs = np.arange(len(first_embeddings.shape))
+            idxs[0] = 1
+            idxs[1] = 0
+            # ee = first_embeddings.transpose(idxs.tolist()).reshape((-1,) + first_embeddings.shape[2:])[:-1]
+            ee = first_encodings[0,:-2]
+            representation = sg(ee)
+            # print('first_rewards',first_rewards.shape,representation.shape,prediction.shape)
             if len(first_rewards.shape) <= 1:
                 first_rewards = self._reward_scaler(first_rewards)
             assert len(first_rewards) == self.seq_len_steps - 1, f'{len(first_rewards)} != {self.seq_len_steps - 1}'
             for i, rew in enumerate(first_rewards):
                 assert not self.is_step_processed(seq[i]), f'Step {i} already processed'
+                # print('init',representation[i].dtype,prediction[i].dtype)
                 seq[i][VideoGPTRewardModel.PRIVATE_LIKELIHOOD_KEY] = rew
+                seq[i][VideoGPTRewardModel.PRIVATE_REPRESENTATION_KEY] = representation[i]#.astype(jnp.float16)#.flatten()
+                seq[i][VideoGPTRewardModel.PRIVATE_PREDICTION_KEY] = prediction[i]#.astype(jnp.float16)#.flatten()
 
         return seq
 
@@ -277,9 +683,13 @@ class VideoGPTRewardModel:
         return image_batch.astype(jnp.float32) / 127.5 - 1.0
 
     def process_seq(self, seq):
+        i=0
         for step in seq:
+            i+=1
             if not self.is_step_processed(step):
                 continue
-            step[VideoGPTRewardModel.PUBLIC_LIKELIHOOD_KEY] = step[VideoGPTRewardModel.PRIVATE_LIKELIHOOD_KEY]
+            step[VideoGPTRewardModel.PUBLIC_LIKELIHOOD_KEY] = step[VideoGPTRewardModel.PRIVATE_LIKELIHOOD_KEY]# if i % 4==0 else 0
+            step[VideoGPTRewardModel.PUBLIC_REPRESENTATION_KEY] = step[VideoGPTRewardModel.PRIVATE_REPRESENTATION_KEY]# if i % 4==0 else 0
+            step[VideoGPTRewardModel.PUBLIC_PREDICTION_KEY] = step[VideoGPTRewardModel.PRIVATE_PREDICTION_KEY]# if i % 4==0 else 0
         return seq[self.seq_len_steps - 1:]
 

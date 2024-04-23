@@ -8,7 +8,7 @@ from flax import jax_utils
 from flax.training import checkpoints
 
 from .vqgan import VQGAN
-from .videogpt import VideoGPT
+from .videogpt import VideoGPT,MyVideoGPT
 from .stylegan_disc import StyleGANDisc
 from .vqgan import VQGAN
 

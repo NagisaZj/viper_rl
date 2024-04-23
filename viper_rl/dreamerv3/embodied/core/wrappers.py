@@ -54,6 +54,17 @@ class ActionRepeat(base.Wrapper):
         obs["reward"] = np.float32(reward)
         self._done = obs["is_last"]
         return obs
+    
+class SparseReward(base.Wrapper):
+    def __init__(self, env):
+        super().__init__(env)
+        self._done = False
+
+    def step(self, action):
+        obs = self.env.step(action)
+        reward = obs["reward"] if obs['reward']>9.5 else 0
+        obs["reward"] = np.float32(reward)
+        return obs
 
 
 class ClipAction(base.Wrapper):

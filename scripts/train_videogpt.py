@@ -20,9 +20,9 @@ directory = pathlib.Path(__file__).resolve()
 directory = directory.parent
 sys.path.append(str(directory.parent))
 
-from viper_rl.videogpt.models import AE, VideoGPT
+from viper_rl.videogpt.models import AE, VideoGPT, MyVideoGPT
 from viper_rl.videogpt.sampler import VideoGPTSampler
-from viper_rl.videogpt.data import load_dataset
+from viper_rl.videogpt.data import load_dataset, load_dataset_long
 from viper_rl.videogpt.train_utils import init_model_state_videogpt, get_first_device, ProgressMeter, \
     save_video_grid, add_border, save_video
 
@@ -32,8 +32,8 @@ def main():
     rng = jax.random.PRNGKey(config.seed)
     rng, init_rng = jax.random.split(rng)
 
-    config.ckpt = config.output_dir if osp.exists(config.output_dir) else None
-
+    config.ckpt = config.output_dir if osp.exists(config.output_dir) else '/data/zj/viper_rl/viper_rl_data/checkpoints/dmc_videogpt_l4_s4'
+    config.ckpt = '/data/zj/viper_rl/viper_rl_data/checkpoints/dmc_videogpt_l4_s4'
     if is_master_process:
         wandb.init(project='viper_rl', config=config,
                    id=config.run_id, resume='allow', mode='online')
@@ -48,6 +48,7 @@ def main():
         pickle.dump(class_map, open(osp.join(config.output_dir, 'class_map.pkl'), 'wb'))
 
     ae = AE(config.ae_ckpt)
+    print(config.ae_ckpt,config.data_path)
 
     batch = next(train_loader)
     batch = ae.prepare_batch(batch)

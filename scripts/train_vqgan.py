@@ -33,6 +33,7 @@ def main():
     rng, init_rng = jax.random.split(rng)
 
     config.ckpt = config.output_dir if osp.exists(config.output_dir) else None
+    config.ckpt='/data/zj/viper_rl/viper_rl_data/checkpoints/dmc_vqgan'
     ckpt_dir = osp.join(config.output_dir, 'checkpoints')
 
     if is_master_process:

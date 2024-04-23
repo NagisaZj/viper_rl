@@ -17,13 +17,14 @@ class Transformer(nn.Module):
     out_dim: int
     
     @nn.compact
-    def __call__(self, x, mask=None, deterministic=False, label=None, decode_step=None):
+    def __call__(self, x, mask=None, deterministic=False, label=None, decode_step=None,rightshift=True):
         old_shape = x.shape[1:-1]
         x = x.reshape(x.shape[0], -1, x.shape[-1])
 
         x = nn.Dense(self.embed_dim)(x)
         if decode_step is None or x.shape[1] > 1:
-            x = RightShift()(x)
+            if rightshift:
+                x = RightShift()(x)
         else:
             x_shift = RightShift()(x)
             x = jax.lax.cond(decode_step > 0, lambda: x, lambda: x_shift)

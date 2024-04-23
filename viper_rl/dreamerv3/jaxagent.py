@@ -24,13 +24,14 @@ def Wrapper(agent_cls):
 
 
 class JAXAgent(embodied.Agent):
-    def __init__(self, agent_cls, obs_space, act_space, step, config):
+    def __init__(self, agent_cls, obs_space, act_space, step, config,reward_model=None):
         self.config = config.jax
         self.batch_size = config.batch_size
         self.batch_length = config.batch_length
         self.data_loaders = config.data_loaders
+        self.reward_model=reward_model
         self._setup()
-        self.agent = agent_cls(obs_space, act_space, step, config, name="agent")
+        self.agent = agent_cls(obs_space, act_space, step, config, name="agent",reward_model=reward_model)
         self.rng = np.random.default_rng(config.seed)
 
         available = jax.devices(self.config.platform)
@@ -166,16 +167,18 @@ class JAXAgent(embodied.Agent):
         self._policy = nj.pure(self.agent.policy)
         self._train = nj.pure(self.agent.train)
         self._report = nj.pure(self.agent.report)
+        # self._encode = nj.pure(self.agent.encode)
         if len(self.train_devices) == 1:
             kw = dict(device=self.train_devices[0])
             self._init_train = nj.jit(self._init_train, **kw)
             self._train = nj.jit(self._train, **kw)
             self._report = nj.jit(self._report, **kw)
+            # self._encode = nj.jit(self._encode, **kw)
         else:
             kw = dict(devices=self.train_devices)
             self._init_train = nj.pmap(self._init_train, "i", **kw)
             self._train = nj.pmap(self._train, "i", **kw)
-            self._report = nj.pmap(self._report, "i", **kw)
+            # self._encode = nj.pmap(self._encode, "i", **kw)
         if len(self.policy_devices) == 1:
             kw = dict(device=self.policy_devices[0])
             self._init_policy = nj.jit(self._init_policy, **kw)

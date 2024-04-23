@@ -14,7 +14,7 @@ cd $CHECKPOINT_DIR
 
 for i in aa
 do
-    ia download dmc_checkpoint_$i dmc.tar.part$i
+    # ia download dmc_checkpoint_$i dmc.tar.part$i
     mv dmc_checkpoint_$i/dmc.tar.part$i .
     rmdir dmc_checkpoint_$i
 done

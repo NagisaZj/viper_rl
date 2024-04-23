@@ -3,6 +3,10 @@ import pathlib
 import sys
 import warnings
 from functools import partial as bind
+sys.path.append('./')
+from viper_rl.dreamerv3.embodied.core import space as spacelib
+import copy
+import numpy as np
 
 warnings.filterwarnings('ignore', '.*box bound precision lowered.*')
 warnings.filterwarnings('ignore', '.*using stateful random seeds*')
@@ -15,7 +19,8 @@ sys.path.append(str(directory.parent))
 
 from viper_rl.dreamerv3 import embodied
 from viper_rl.dreamerv3.embodied import wrappers
-
+# import os
+# os.environ["MUJOCO_GL"] = "egl"
 
 def main(argv=None):
   from viper_rl.dreamerv3 import agent as agt
@@ -54,9 +59,14 @@ def main(argv=None):
   try:
     if args.script == 'train':
       env = make_envs(config)
-      replay = make_replay(config, logdir / 'replay', **replay_kwargs)
       cleanup.append(env)
-      agent = agt.Agent(env.obs_space, env.act_space, step, config)
+      print(env.obs_space)
+      o_space = copy.deepcopy(env.obs_space)
+      o_space['representation'] = spacelib.Space(np.int32,(16,16))
+      o_space['prediction'] = spacelib.Space(np.int32,(16,16))
+      print(o_space)
+      agent = agt.MyAgent(o_space, env.act_space, step, config,reward_model)
+      replay = make_replay_mine(config, logdir / 'replay',agent, **replay_kwargs)
       embodied.run.train(agent, env, replay, logger, args)
   
     elif args.script == 'train_amp':
@@ -172,6 +182,36 @@ def make_replay(
     raise NotImplementedError(config.replay)
   return replay
 
+def make_replay_mine(
+    config, directory=None,agent=None, is_eval=False, rate_limit=False, reward_model=None, **kwargs):
+  assert config.replay == 'uniform' or config.replay == 'uniform_relabel' or not rate_limit
+  length = config.batch_length
+  size = config.replay_size // 10 if is_eval else config.replay_size
+  if config.replay == 'uniform_relabel':
+    kw = {'online': config.replay_online}
+    if rate_limit and config.run.train_ratio > 0:
+      kw['samples_per_insert'] = config.run.train_ratio / config.batch_length
+      kw['tolerance'] = 10 * config.batch_size
+      kw['min_size'] = config.batch_size
+    assert reward_model is not None, 'relabel requires reward model'
+    reward_model.agent = agent
+    replay = embodied.replay.UniformRelabel(
+        length, reward_model, config.uniform_relabel_add_mode, size, directory, **kw)
+  elif config.replay == 'uniform' or is_eval:
+    kw = {'online': config.replay_online}
+    if rate_limit and config.run.train_ratio > 0:
+      kw['samples_per_insert'] = config.run.train_ratio / config.batch_length
+      kw['tolerance'] = 10 * config.batch_size
+      kw['min_size'] = config.batch_size
+    replay = embodied.replay.Uniform(length, size, directory, **kw)
+  elif config.replay == 'reverb':
+    replay = embodied.replay.Reverb(length, size, directory)
+  elif config.replay == 'chunks':
+    replay = embodied.replay.NaiveChunks(length, size, directory)
+  else:
+    raise NotImplementedError(config.replay)
+  return replay
+
 
 def make_envs(config, **overrides):
   suite, task = config.task.split('_', 1)
@@ -240,6 +280,7 @@ def wrap_env(env, config):
   for name, space in env.act_space.items():
     if not space.discrete:
       env = wrappers.ClipAction(env, name)
+  # env = wrappers.SparseReward(env)
   return env
 
 

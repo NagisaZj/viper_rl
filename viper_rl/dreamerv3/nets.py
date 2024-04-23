@@ -553,6 +553,50 @@ class MLP(nj.Module):
     def _out(self, name, shape, x):
         return self.get(f"dist_{name}", Dist, shape, **self._dist)(x)
 
+class MyMLP(nj.Module):
+    def __init__(
+        self,
+        shape,
+        layers,
+        units,
+        inputs=["tensor"],
+        dims=None,
+        symlog_inputs=False,
+        **kw,
+    ):
+        assert shape is None or isinstance(shape, (int, tuple, dict)), shape
+        if isinstance(shape, int):
+            shape = (shape,)
+        self._shape = shape
+        self._layers = layers
+        self._units = units
+        self._inputs = Input(inputs, dims=dims)
+        self._symlog_inputs = symlog_inputs
+        distkeys = ("dist", "outscale", "minstd", "maxstd", "outnorm", "unimix", "bins")
+        self._dense = {k: v for k, v in kw.items() if k not in distkeys}
+        self._dist = {k: v for k, v in kw.items() if k in distkeys}
+
+    def __call__(self, inputs):
+        feat = self._inputs(inputs)
+        if self._symlog_inputs:
+            feat = jaxutils.symlog(feat)
+        x = jaxutils.cast_to_compute(feat)
+        x = x.reshape([-1, x.shape[-1]])
+        for i in range(self._layers):
+            x = self.get(f"h{i}", Linear, self._units, **self._dense)(x)
+        x = x.reshape(feat.shape[:-3] + (-1,))
+        if self._shape is None:
+            return x
+        elif isinstance(self._shape, tuple):
+            return self._out("out", self._shape, x)
+        elif isinstance(self._shape, dict):
+            return {k: self._out(k, v, x) for k, v in self._shape.items()}
+        else:
+            raise ValueError(self._shape)
+
+    def _out(self, name, shape, x):
+        return self.get(f"dist_{name}", Dist, shape, **self._dist)(x)
+
 
 class Dist(nj.Module):
     def __init__(

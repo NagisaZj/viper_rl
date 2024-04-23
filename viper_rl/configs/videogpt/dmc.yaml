@@ -2,7 +2,7 @@ seed: 1234
 
 batch_size: 64
 lr: 1.e-4
-total_steps: 800000
+total_steps: 1200000
 warmup_steps: 0
 save_interval: 10000
 test_interval: 10000
@@ -15,9 +15,9 @@ optimizer: "adam"
 lr_schedule: "constant"
 
 image_size: 64
-seq_len: 16
+seq_len: 4
 frame_skip: 1
-ae_ckpt: "viper_rl_data/checkpoints/dmc_vqgan"
+ae_ckpt: "viper_rl_data/checkpoints/mine/dmc_vqgan_weight"
 
 n_classes: 16
 class_cond: true
