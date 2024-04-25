@@ -80,12 +80,16 @@ This will produce video model checkpoints in `<VIPER_INSTALL_PATH>/viper_rl_data
 
 Use the following command to first train a VQ-GAN:
 ```
-python scripts/train_vqgan.py -o viper_rl_data/checkpoints/dmc_vqgan -c viper_rl/configs/vqgan/dmc.yaml
+CUDA_VISIBLE_DEVICES=0 python scripts/train_vqgan.py -o viper_rl_data/checkpoints/mine/dmc_vqgan_10per -c viper_rl/configs/vqgan/dmc.yaml
 ```
 
 To train the VideoGPT, update `ae_ckpt` in `viper_rl/configs/dmc.yaml` to point to the VQGAN checkpoint, and then run:
 ```
-python scripts/train_videogpt.py -o viper_rl_data/checkpoints/dmc_videogpt_l16_s1 -c viper_rl/configs/videogpt/dmc.yaml
+CUDA_VISIBLE_DEVICES=1,2,4,5 python scripts/train_videogpt.py -o /data/zj/viper_rl/viper_rl_data/checkpoints/mine/dmc_videogpt_l4_s1_weight_weightvqgan -c viper_rl/configs/videogpt/dmc.yaml 
+
+python viper_rl/train_inverse_model.py
+
+CUDA_VISIBLE_DEVICES=2,3 python -m viper_rl.eval_inverse_model
 ```
 
 ## Policy training
@@ -93,7 +97,22 @@ python scripts/train_videogpt.py -o viper_rl_data/checkpoints/dmc_videogpt_l16_s
 Checkpoints for various models can be found in `viper_rl/videogpt/reward_models/__init__.py`. To use one of these video models during policy optimization, simply specify it with the `--reward_model` argument.  e.g.
 
 ```
-python scripts/train_dreamer.py --configs=dmc_vision videogpt_prior_rb --task=dmc_cartpole_balance --reward_model=dmc_clen16_fskip4 --logdir=~/logdir
+CUDA_VISIBLE_DEVICES=1 python scripts/train_dreamer.py --configs=dmc_vision videogpt_prior_rb --task=dmc_cartpole_balance --reward_model=dmc_clen16_fskip4 --logdir=~/logdir
+
+CUDA_VISIBLE_DEVICES=5 python scripts/train_dreamer.py --configs=dmc_vision videogpt_prior_rb --task=dmc_cheetah_run --reward_model=dmc_clen16_fskip4 --logdir=./logs/dmc_cheetah_run/viper_099
+CUDA_VISIBLE_DEVICES=5 python scripts/train_dreamer.py --configs=dmc_vision videogpt_prior_rb --task=dmc_cartpole_swingup --reward_model=dmc_clen16_fskip4_cartpole_swingup --logdir=./logs/dmc_cartpole_swingup/mine_bc_reward_01_inverseloss_0 --seed 5
+CUDA_VISIBLE_DEVICES=3 python scripts/train_dreamer.py --configs=dmc_vision videogpt_prior_rb --task=dmc_cartpole_swingup --reward_model=dmc_clen16_fskip1 --logdir=./logs/dmc_cartpole_swingup/mine_08_fskip1 --reward_model_batch_size 16
+CUDA_VISIBLE_DEVICES=3 python scripts/train_dreamer.py --configs=dmc_vision videogpt_prior_rb --task=dmc_cartpole_balance --reward_model=dmc_clen16_fskip4 --logdir=./logs/dmc_cartpole_balance/viper_099
+ --horizon 333
+
+CUDA_VISIBLE_DEVICES=0 python scripts/train_dreamer.py --configs=dmc_vision videogpt_prior_rb --task=dmc_quadruped_run --reward_model=dmc_clen16_fskip4 --logdir=./logs/dmc_quadruped_run/ori4 
+
+
+CUDA_VISIBLE_DEVICES=5 python scripts/train_dreamer.py --configs=dmc_vision videogpt_prior_rb --task=dmc_quadruped_run --reward_model=dmc_clen16_fskip4 --logdir=./logs/dmc_quadruped_run/viper_reproduce2 --run.from_checkpoint /data/zj/viper_rl/logs/dmc_quadruped_run/viper/checkpoint.ckpt 
+
+CUDA_VISIBLE_DEVICES=4,5 python scripts/train_dreamer.py --configs=dmc_vision videogpt_prior_rb --task=dmc_quadruped_run --reward_model=mine --logdir=./logs/dmc_quadruped_run/mine/debug5 --run.from_checkpoint /data/zj/viper_rl/logs/dmc_quadruped_run/viper_jointfalse/checkpoint.ckpt 
+
+CUDA_VISIBLE_DEVICES=0 python scripts/train_dreamer.py --configs=dmc_vision videogpt_prior_rb --task=dmc_quadruped_run --reward_model=dmc_clen16_fskip4 --logdir=./logs/dmc_quadruped_run/viper_load_to_ori3  --run.from_checkpoint /data/zj/viper_rl/logs/dmc_quadruped_run/viper_jointfalse/checkpoint.ckpt 
 ```
 
 Custom checkpoint directories can be specified with the `$VIPER_CHECKPOINT_DIR` environment variable. The default checkpoint path is set to `viper_rl_data/checkpoints/`.

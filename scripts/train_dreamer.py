@@ -3,7 +3,8 @@ import pathlib
 import sys
 import warnings
 from functools import partial as bind
-
+import copy
+import numpy as np
 warnings.filterwarnings('ignore', '.*box bound precision lowered.*')
 warnings.filterwarnings('ignore', '.*using stateful random seeds*')
 warnings.filterwarnings('ignore', '.*is a deprecated alias for.*')
@@ -14,6 +15,7 @@ directory = directory.parent
 sys.path.append(str(directory.parent))
 
 from viper_rl.dreamerv3 import embodied
+from viper_rl.dreamerv3.embodied.core import space as spacelib
 from viper_rl.dreamerv3.embodied import wrappers
 
 
@@ -56,7 +58,10 @@ def main(argv=None):
       env = make_envs(config)
       replay = make_replay(config, logdir / 'replay', **replay_kwargs)
       cleanup.append(env)
-      agent = agt.Agent(env.obs_space, env.act_space, step, config)
+      o_space = copy.deepcopy(env.obs_space)
+      o_space['representation'] = spacelib.Space(np.int32,(16,16))
+      o_space['prediction'] = spacelib.Space(np.int32,(16,16))
+      agent = agt.MyAgent(o_space, env.act_space, step, config,reward_model=reward_model)
       embodied.run.train(agent, env, replay, logger, args)
   
     elif args.script == 'train_amp':

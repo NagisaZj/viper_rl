@@ -1,3 +1,32 @@
+class MyAgent:
+    configs = {}  # dict of dicts
+
+    def __init__(self, obs_space, act_space, step, config,reward_model):
+        pass
+
+    def dataset(self, generator_fn):
+        raise NotImplementedError("dataset(generator_fn) -> generator_fn")
+
+    def policy(self, obs, state=None, mode="train"):
+        raise NotImplementedError("policy(obs, state=None, mode='train') -> act, state")
+
+    def train(self, data, state=None):
+        raise NotImplementedError("train(data, state=None) -> outs, state, metrics")
+
+    def report(self, data):
+        raise NotImplementedError("report(data) -> metrics")
+
+    def save(self):
+        raise NotImplementedError("save() -> data")
+
+    def load(self, data):
+        raise NotImplementedError("load(data) -> None")
+
+    def sync(self):
+        # This method allows the agent to sync parameters from its training devices
+        # to its policy devices in the case of a multi-device agent.
+        pass
+
 class Agent:
     configs = {}  # dict of dicts
 

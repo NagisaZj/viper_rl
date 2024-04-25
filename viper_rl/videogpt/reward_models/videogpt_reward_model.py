@@ -23,6 +23,11 @@ class VideoGPTRewardModel:
 
     PRIVATE_LIKELIHOOD_KEY = 'log_immutable_density'
     PUBLIC_LIKELIHOOD_KEY = 'density'
+    PRIVATE_REPRESENTATION_KEY = 'private_representation'
+    PUBLIC_REPRESENTATION_KEY = 'representation'
+    PRIVATE_PREDICTION_KEY = 'private_prediction'
+    PUBLIC_PREDICTION_KEY = 'prediction'
+    
 
     def __init__(self, task: str, vqgan_path: str, videogpt_path: str,
                  camera_key: str='image',
@@ -87,6 +92,7 @@ class VideoGPTRewardModel:
             assert (self.task in self.class_map,
                     f'{self.task} not found in class map.')
             self.task_id = int(self.class_map[self.task])
+            print(self.class_map)
             print(f'Loaded conditioning information for task {self.task}')
         elif self.class_cond:
             raise ValueError(
@@ -151,37 +157,59 @@ class VideoGPTRewardModel:
             encodings = encodings[:, self.n_skip - 1::self.n_skip]
             embeddings = embeddings[:, self.n_skip - 1::self.n_skip]
             print(f'\tAfter applying frame skip: Embeddings shape: {embeddings.shape}, Encodings shape: {encodings.shape}')
-        likelihoods = self.model.apply(
-            variables, embeddings, encodings, label=label, reduce_sum=self.nll_reduce_sum,
-            method=self.model.log_prob)
+        # likelihoods,predictions = self.model.apply(
+            # variables, embeddings, encodings, label=label, reduce_sum=self.nll_reduce_sum,
+            # method=self.model.log_prob)
+        likelihoods,predictions = self.model.apply(
+            variables, embeddings, encodings, label=label, reduce_sum=self.nll_reduce_sum,ae=self.ae,
+            method=self.model.my_reward3)
+        print(likelihoods.shape,predictions.shape)
+        # print(likelihoods.mean(),likelihoods2.mean())
+        self.compute_joint = False
         if self.compute_joint:
             ll = likelihoods.sum(-1)
         else:
             ll = likelihoods[:, -1]
-        return ll
+        # print(likelihoods.shape,ll.shape,predictions.shape)
+        
+        return ll,predictions[:,-1,...]
 
     @functools.partial(jax.jit, static_argnums=(0,))
     def _compute_likelihood_for_initial_elements(self, variables, embeddings, encodings, label):
         print(f'Tracing init frame likelihood: Embeddings shape: {embeddings.shape}, Encodings shape: {encodings.shape}')
+        # print(embeddings[0,0,0,0,:4],encodings[0,0,0,:4])
         if self.n_skip > 1:
             first_encodings = jnp.concatenate([encodings[:1, i::self.n_skip] for i in range(self.n_skip)], axis=0)
             first_embeddings = jnp.concatenate([embeddings[:1, i::self.n_skip] for i in range(self.n_skip)], axis=0)
             print(f'\tAfter applying frame skip: Embeddings shape: {first_embeddings.shape}, Encodings shape: {first_encodings.shape}')
         else:
             first_encodings, first_embeddings = encodings[:1], embeddings[:1]
-        likelihoods = self.model.apply(
-            variables, first_embeddings, first_encodings, label=label, reduce_sum=self.nll_reduce_sum,
-            method=self.model.log_prob)
+        # likelihoods,predictions = self.model.apply(
+            # variables, first_embeddings, first_encodings, label=label, reduce_sum=self.nll_reduce_sum,
+            # method=self.model.log_prob)
+        likelihoods,predictions = self.model.apply(
+            variables, first_embeddings, first_encodings, label=label, reduce_sum=self.nll_reduce_sum,ae=self.ae,
+            method=self.model.my_reward3)
         if self.n_skip > 1:
             idxs = np.arange(len(likelihoods.shape))
             idxs[0] = 1
             idxs[1] = 0
             ll = likelihoods.transpose(idxs.tolist()).reshape((-1,) + likelihoods.shape[2:])[:-1]
+            
+            idxs = np.arange(len(predictions.shape))
+            idxs[0] = 1
+            idxs[1] = 0
+            pp = predictions.transpose(idxs.tolist()).reshape((-1,) + predictions.shape[2:])[:-1]
         else:
             ll = likelihoods[0, :-1]
+            pp = predictions[0, :-1]
+        print('initial',likelihoods.shape,ll.shape)
+        self.compute_joint = False
         if self.compute_joint:
             ll = jnp.cumsum(ll) / jnp.arange(1, len(ll) + 1)
-        return ll
+        print('initial',ll.shape)
+        # print(likelihoods.shape,ll.shape,pp.shape)
+        return ll,pp
             
     def _reward_scaler(self, reward):
         if self.reward_scale:
@@ -219,42 +247,72 @@ class VideoGPTRewardModel:
         encodings = self.ae.encode(jnp.expand_dims(image_batch, axis=0))
         embeddings = self.ae.lookup(encodings)
         encodings, embeddings = encodings[0], embeddings[0]
+        encodings = jnp.concatenate([encodings,encodings[-1:],encodings[-1:],encodings[-1:],encodings[-1:]],0)
+        embeddings = jnp.concatenate([embeddings,embeddings[-1:],embeddings[-1:],embeddings[-1:],embeddings[-1:]],0)
 
         # Compute batch of encodings and embeddings for likelihood computation.
         idxs = list(range(T - self.seq_len + 1))
-        batch_encodings = [encodings[idx:(idx + self.seq_len)] for idx in idxs]
-        batch_embeddings = [embeddings[idx:(idx + self.seq_len)] for idx in idxs]
+        # idxs = list(range(1,T - self.seq_len + 2))
+        batch_encodings = [encodings[idx:(idx + self.seq_len+(self.n_skip*1))] for idx in idxs]
+        batch_embeddings = [embeddings[idx:(idx + self.seq_len+(self.n_skip*1))] for idx in idxs]
         batch_encodings = jax.device_put(jnp.stack(batch_encodings), self.device)
         batch_embeddings = jax.device_put(jnp.stack(batch_embeddings), self.device)
 
         rewards = []
+        representations = []
+        predictions = []
         for i in range(0, len(idxs), self.minibatch_size):
             mb_encodings = batch_encodings[i:(i + self.minibatch_size)]
             mb_embeddings = batch_embeddings[i:(i + self.minibatch_size)]
             mb_label = self.expand_scalar(label, mb_encodings.shape[0], jnp.int32)
-            rewards.append(sg(self._compute_likelihood(
-                self.variables, mb_embeddings, mb_encodings, mb_label)))
+            r,prediction = self._compute_likelihood(
+                self.variables, mb_embeddings, mb_encodings, mb_label)
+            rewards.append(sg(r))
+            # print(mb_embeddings.shape)
+            representations.append(sg(mb_encodings[:,-2,...]))
+            predictions.append(sg(prediction))
         rewards = jnp.concatenate(rewards, axis=0)
+        representations = jnp.concatenate(representations, axis=0)
+        predictions = jnp.concatenate(predictions, axis=0)
+        representations = representations#.reshape([*representations.shape[:-2],-1])
+        predictions = predictions#.reshape([*predictions.shape[:-2],-1])
+        # print('rewards',rewards.shape,representations.shape,predictions.shape)
         if len(rewards.shape) <= 1:
             rewards = self._reward_scaler(rewards)
         assert len(rewards) == (T - self.seq_len_steps + 1), f'{len(rewards)} != {T - self.seq_len_steps + 1}'
         for i, rew in enumerate(rewards):
             idx = start_idx + self.seq_len_steps - 1 + i
             assert not self.is_step_processed(seq[idx])
+            # print('middle',representations[i].shape,predictions[i].shape)
             seq[idx][VideoGPTRewardModel.PRIVATE_LIKELIHOOD_KEY] = rew
+            seq[idx][VideoGPTRewardModel.PRIVATE_REPRESENTATION_KEY] = representations[i]#.astype(jnp.float16)#.flatten()
+            seq[idx][VideoGPTRewardModel.PRIVATE_PREDICTION_KEY] = predictions[i]#.astype(jnp.float16)#.flatten()
 
         if seq[0]['is_first']:
             first_encodings = batch_encodings[:1]
             first_embeddings = batch_embeddings[:1]
             first_label = self.expand_scalar(label, first_encodings.shape[0], jnp.int32)
-            first_rewards = sg(self._compute_likelihood_for_initial_elements(
-                self.variables, first_embeddings, first_encodings, first_label))
+            r,prediction = self._compute_likelihood_for_initial_elements(
+                self.variables, first_embeddings, first_encodings, first_label)
+            first_rewards = sg(r)
+            prediction = sg(prediction)
+            
+            idxs = np.arange(len(first_embeddings.shape))
+            idxs[0] = 1
+            idxs[1] = 0
+            # ee = first_embeddings.transpose(idxs.tolist()).reshape((-1,) + first_embeddings.shape[2:])[:-1]
+            ee = first_encodings[0,:-2]
+            representation = sg(ee)
+            # print('first_rewards',first_rewards.shape,representation.shape,prediction.shape)
             if len(first_rewards.shape) <= 1:
                 first_rewards = self._reward_scaler(first_rewards)
             assert len(first_rewards) == self.seq_len_steps - 1, f'{len(first_rewards)} != {self.seq_len_steps - 1}'
             for i, rew in enumerate(first_rewards):
                 assert not self.is_step_processed(seq[i]), f'Step {i} already processed'
+                # print('init',representation[i].dtype,prediction[i].dtype)
                 seq[i][VideoGPTRewardModel.PRIVATE_LIKELIHOOD_KEY] = rew
+                seq[i][VideoGPTRewardModel.PRIVATE_REPRESENTATION_KEY] = representation[i]#.astype(jnp.float16)#.flatten()
+                seq[i][VideoGPTRewardModel.PRIVATE_PREDICTION_KEY] = prediction[i]#.astype(jnp.float16)#.flatten()
 
         return seq
 
@@ -277,9 +335,13 @@ class VideoGPTRewardModel:
         return image_batch.astype(jnp.float32) / 127.5 - 1.0
 
     def process_seq(self, seq):
+        i=0
         for step in seq:
+            i+=1
             if not self.is_step_processed(step):
                 continue
-            step[VideoGPTRewardModel.PUBLIC_LIKELIHOOD_KEY] = step[VideoGPTRewardModel.PRIVATE_LIKELIHOOD_KEY]
+            step[VideoGPTRewardModel.PUBLIC_LIKELIHOOD_KEY] = step[VideoGPTRewardModel.PRIVATE_LIKELIHOOD_KEY]# if i % 4==0 else 0
+            step[VideoGPTRewardModel.PUBLIC_REPRESENTATION_KEY] = step[VideoGPTRewardModel.PRIVATE_REPRESENTATION_KEY]# if i % 4==0 else 0
+            step[VideoGPTRewardModel.PUBLIC_PREDICTION_KEY] = step[VideoGPTRewardModel.PRIVATE_PREDICTION_KEY]# if i % 4==0 else 0
         return seq[self.seq_len_steps - 1:]
 

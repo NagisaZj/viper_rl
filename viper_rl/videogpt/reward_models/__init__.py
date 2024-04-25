@@ -20,6 +20,10 @@ LOAD_REWARD_MODEL_DICT = {
   'dmc_clen16_fskip4': bind_videogpt_reward_model(  # Frame skip 4
     videogpt_path=get_path('dmc_videogpt_l4_s4'),
     vqgan_path=get_path('dmc_vqgan')),
+  'dmc_clen16_fskip4_cartpole_swingup': bind_videogpt_reward_model(  # Frame skip 4
+    # videogpt_path='/data/zj/tmp/viper_rl/viper_rl_data/checkpoints/mine/dmc_videogpt_l4_s1_weight_weightvqgan',
+    videogpt_path='/data/zj/viper_rl/viper_rl_data/checkpoints/mine/dmc_videogpt_l4_s1_cartpole_swingup_weight_weightvqgan',
+    vqgan_path='/data/zj/tmp/viper_rl/viper_rl_data/checkpoints/mine/dmc_vqgan_weight'),
 
   # Atari.
   'atari_clen16_fskip1': bind_videogpt_reward_model(  # No frame skip

@@ -144,6 +144,51 @@ class Prior(nj.Module):
     def report(self, data):
         return {}
 
+class MyPrior(nj.Module):
+    REWARDS = {
+        "disag": expl.Disag,
+    }
+
+    def __init__(self, wm, act_space, config):
+        self.config = config
+        self.rewards = {}
+        critics = {}
+        for key, scale in config.prior_rewards.items():
+            if not scale:
+                continue
+            if key == "extr":
+                rewfn = lambda s: wm.heads["reward"](s).mean()[1:]
+                critics[key] = agent.VFunction(rewfn, config, name=key)
+            elif key == "density":
+                rewfn = lambda s: wm.heads["density"](s).mean()[1:]
+                critics[key] = agent.VFunction(rewfn, config, name=key)
+            elif key == "bc_reward":
+                rewfn = lambda s: wm.heads["bc_reward"](s).mean()[1:]
+                critics[key] = rewfn
+            else:
+                rewfn = self.REWARDS[key](wm, act_space, config, name=key + "_reward")
+                critics[key] = agent.VFunction(rewfn, config, name=key)
+                self.rewards[key] = rewfn
+        scales = {k: v for k, v in config.prior_rewards.items() if v}
+        self.ac = agent.MyImagActorCritic(critics, scales, act_space, config, name="ac")
+
+    def initial(self, batch_size):
+        return self.ac.initial(batch_size)
+
+    def policy(self, latent, state):
+        return self.ac.policy(latent, state)
+
+    def train(self, imagine, start, data):
+        metrics = {}
+        for key, rewfn in self.rewards.items():
+            mets = rewfn.train(data)
+            metrics.update({f"{key}_k": v for k, v in mets.items()})
+        traj, mets = self.ac.train(imagine, start, data)
+        metrics.update(mets)
+        return traj, metrics
+
+    def report(self, data):
+        return {}
 
 class MotionPrior(nj.Module):
     REWARDS = {

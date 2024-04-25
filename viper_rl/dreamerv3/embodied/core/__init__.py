@@ -1,4 +1,4 @@
-from .base import Agent, Env, Wrapper, Replay
+from .base import Agent, Env, Wrapper, Replay, MyAgent
 
 from .basics import convert, treemap, pack, unpack
 from .basics import print_ as print
