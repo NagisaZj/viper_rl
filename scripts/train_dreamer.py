@@ -61,6 +61,7 @@ def main(argv=None):
       o_space = copy.deepcopy(env.obs_space)
       o_space['representation'] = spacelib.Space(np.int32,(16,16))
       o_space['prediction'] = spacelib.Space(np.int32,(16,16))
+      o_space['sparse_reward'] = spacelib.Space(np.float32)
       agent = agt.MyAgent(o_space, env.act_space, step, config,reward_model=reward_model)
       embodied.run.train(agent, env, replay, logger, args)
   
