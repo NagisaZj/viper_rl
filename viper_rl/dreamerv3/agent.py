@@ -517,7 +517,62 @@ class VFunction(nj.Module):
         ret = jnp.stack(list(reversed(vals))[:-1])
         return rew, ret, value[:-1]
 
+class FlexibleVFunction(nj.Module):
+    def __init__(self, rewfn, config):
+        self.rewfn = rewfn
+        self.config = config
+        self.net = nets.MLP((), name="net", dims="deter", **self.config.critic)
+        self.slow = nets.MLP((), name="slow", dims="deter", **self.config.critic)
+        self.updater = jaxutils.SlowUpdater(
+            self.net,
+            self.slow,
+            self.config.slow_critic_fraction,
+            self.config.slow_critic_update,
+        )
+        self.opt = jaxutils.Optimizer(name="critic_opt", **self.config.critic_opt)
 
+    def train(self, traj, actor):
+        target = sg(self.score(traj)[1])
+        mets, metrics = self.opt(self.net, self.loss, traj, target, has_aux=True)
+        metrics.update(mets)
+        self.updater()
+        return metrics
+
+    def loss(self, traj, target):
+        metrics = {}
+        traj = {k: v[:-1] for k, v in traj.items()}
+        dist = self.net(traj)
+        loss = -dist.log_prob(sg(target))
+        if self.config.critic_slowreg == "logprob":
+            reg = -dist.log_prob(sg(self.slow(traj).mean()))
+        elif self.config.critic_slowreg == "xent":
+            reg = -jnp.einsum(
+                "...i,...i->...", sg(self.slow(traj).probs), jnp.log(dist.probs)
+            )
+        else:
+            raise NotImplementedError(self.config.critic_slowreg)
+        loss += self.config.loss_scales.slowreg * reg
+        loss = (loss * sg(traj["weight"])).mean()
+        loss *= self.config.loss_scales.critic
+        metrics = jaxutils.tensorstats(dist.mean())
+        return loss, metrics
+
+    def score(self, traj, actor=None):
+        rew = self.rewfn(traj)
+        assert (
+            len(rew) == len(traj["action"]) - 1
+        ), "should provide rewards for all but last action"
+        discount = 1 - 1 / self.config.horizon
+        discount=0.8
+        disc = traj["cont"][1:] * discount
+        value = self.net(traj).mean()
+        vals = [value[-1]]
+        interm = rew + disc * value[1:] * (1 - self.config.return_lambda)
+        for t in reversed(range(len(disc))):
+            vals.append(interm[t] + disc[t] * self.config.return_lambda * vals[-1])
+        ret = jnp.stack(list(reversed(vals))[:-1])
+        return rew, ret, value[:-1]
+    
 @myjaxagent.Wrapper
 class MyAgent(nj.Module):
     configs = yaml.YAML(typ="safe").load(
@@ -647,6 +702,7 @@ class MyWorldModel(nj.Module):
 
         if config.task_behavior == "Prior" or config.expl_behavior == "Prior" or config.task_behavior == "MyPrior" or config.expl_behavior == "MyPrior":
             self.heads["density"] = nets.MLP((), **config.density_head, name="density")
+            self.heads["sparse_reward"] = nets.MLP((), **config.density_head, name="sparse_reward")
 
         self.embedding_encoder = nets.MLP((1024,), **config.embedding_encoder, name="embedding_encoder")
         # disc = self.act_space.discrete

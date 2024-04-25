@@ -90,7 +90,7 @@ defaults:
   # representation_model: {layers: 5, units: 1024, act: silu, norm: layer, minstd: 0.1, maxstd: 1.0, outscale: 1.0, outnorm: False, unimix: 0.01, inputs: [deter,stoch], winit: normal, fan: avg, symlog_inputs: False} 
   # prediction_model: {layers: 5, units: 1024, act: silu, norm: layer, minstd: 0.1, maxstd: 1.0, outscale: 1.0, outnorm: False, unimix: 0.01, inputs: [prev_deter,prev_stoch], winit: normal, fan: avg, symlog_inputs: False} 
   cont_head: {layers: 5, units: 1024, act: silu, norm: layer, dist: binary, outscale: 1.0, outnorm: False, inputs: [deter, stoch], winit: normal, fan: avg}
-  loss_scales: {image: 1.0, vector: 1.0, reward: 1.0, density: 1.0, cont: 1.0, dyn: 0.5, rep: 0.1, actor: 1.0, critic: 1.0, slowreg: 1.0, mp_amp: 1.0, mp_amp_gp: 1.0, discriminator_reward: 1.0,inverse_loss: 1000.0,inverse_action: 0.01, bc_reward: 1000.0}
+  loss_scales: {image: 1.0, vector: 1.0, reward: 1.0, density: 1.0, cont: 1.0, dyn: 0.5, rep: 0.1, actor: 1.0, critic: 1.0, slowreg: 1.0, mp_amp: 1.0, mp_amp_gp: 1.0, discriminator_reward: 1.0,inverse_loss: 0.0,inverse_action: 0.0, bc_reward: 0.0,sparse_reward: 1.0}
   # loss_scales: {image: 1.0, vector: 1.0, reward: 1.0, density: 1.0, cont: 1.0, dyn: 0.5, rep: 0.1, actor: 1.0, critic: 1.0, slowreg: 1.0, mp_amp: 1.0, mp_amp_gp: 1.0, discriminator_reward: 1.0,inverse_loss: 0.0,inverse_action: 0.0, bc_reward: 0.0}
   dyn_loss: {impl: kl, free: 1.0}
   rep_loss: {impl: kl, free: 1.0}
@@ -125,7 +125,7 @@ defaults:
   disag_models: 8
 
   # Prior
-  prior_rewards: {extr: 1.0, density: 1.0, disag: 0.0, bc_reward: 0.0}
+  prior_rewards: {extr: 1.0, density: 1.0, disag: 0.0, bc_reward: 0.0, sparse_reward: 1.0}
   reward_model: none
   reward_model_batch_size: 32
   reward_model_compute_joint: True
@@ -139,8 +139,8 @@ defaults:
 
 videogpt_prior_rb:
   task_behavior: MyPrior
-  grad_heads: [decoder, density, cont]
-  prior_rewards: {extr: 0.0, density: 1.0, disag: 1.0, bc_reward: 0.0}
+  grad_heads: [decoder, density, cont , sparse_reward]
+  prior_rewards: {extr: 0.0, density: 1.0, disag: 1.0, bc_reward: 0.0, sparse_reward: 3.0}
   wrapper.density: True
   replay: uniform_relabel
 

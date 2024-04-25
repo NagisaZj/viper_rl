@@ -9,6 +9,7 @@ build/
 develop-eggs/
 dist/
 downloads/
+viper_rl/dreamerv3/embodied/envs
 eggs/
 .eggs/
 lib/

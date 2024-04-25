@@ -105,7 +105,7 @@ class VideoGPT(nn.Module):
         imagined_sequence = jnp.concatenate([embeddings[:,1:-2],current_step_embedding[:,None],embeddings[:,-1:]], axis=1)
         
         
-        num_iters = 0
+        num_iters = 2
         true_embedding = embeddings[:,1:]
         imagine_embedding = imagined_sequence
         for i in range(num_iters):

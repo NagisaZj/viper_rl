@@ -287,6 +287,7 @@ class VideoGPTRewardModel:
             seq[idx][VideoGPTRewardModel.PRIVATE_LIKELIHOOD_KEY] = rew
             seq[idx][VideoGPTRewardModel.PRIVATE_REPRESENTATION_KEY] = representations[i]#.astype(jnp.float16)#.flatten()
             seq[idx][VideoGPTRewardModel.PRIVATE_PREDICTION_KEY] = predictions[i]#.astype(jnp.float16)#.flatten()
+            seq[idx]['sparse_reward'] = (seq[idx]['reward']>0.9).astype(jnp.float32)
 
         if seq[0]['is_first']:
             first_encodings = batch_encodings[:1]
@@ -313,6 +314,7 @@ class VideoGPTRewardModel:
                 seq[i][VideoGPTRewardModel.PRIVATE_LIKELIHOOD_KEY] = rew
                 seq[i][VideoGPTRewardModel.PRIVATE_REPRESENTATION_KEY] = representation[i]#.astype(jnp.float16)#.flatten()
                 seq[i][VideoGPTRewardModel.PRIVATE_PREDICTION_KEY] = prediction[i]#.astype(jnp.float16)#.flatten()
+                seq[idx]['sparse_reward'] = (seq[idx]['reward']>0.9).astype(jnp.float32)
 
         return seq
 
@@ -343,5 +345,6 @@ class VideoGPTRewardModel:
             step[VideoGPTRewardModel.PUBLIC_LIKELIHOOD_KEY] = step[VideoGPTRewardModel.PRIVATE_LIKELIHOOD_KEY]# if i % 4==0 else 0
             step[VideoGPTRewardModel.PUBLIC_REPRESENTATION_KEY] = step[VideoGPTRewardModel.PRIVATE_REPRESENTATION_KEY]# if i % 4==0 else 0
             step[VideoGPTRewardModel.PUBLIC_PREDICTION_KEY] = step[VideoGPTRewardModel.PRIVATE_PREDICTION_KEY]# if i % 4==0 else 0
+            step['sparse_reward'] = (step['reward']>0.9).astype(jnp.float32)
         return seq[self.seq_len_steps - 1:]
 

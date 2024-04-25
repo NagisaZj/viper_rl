@@ -161,6 +161,9 @@ class MyPrior(nj.Module):
                 critics[key] = agent.VFunction(rewfn, config, name=key)
             elif key == "density":
                 rewfn = lambda s: wm.heads["density"](s).mean()[1:]
+                critics[key] = agent.FlexibleVFunction(rewfn, config, name=key)
+            elif key == "sparse_reward":
+                rewfn = lambda s: wm.heads["sparse_reward"](s).mean()[1:]
                 critics[key] = agent.VFunction(rewfn, config, name=key)
             elif key == "bc_reward":
                 rewfn = lambda s: wm.heads["bc_reward"](s).mean()[1:]
