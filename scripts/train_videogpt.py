@@ -33,6 +33,7 @@ def main():
     rng, init_rng = jax.random.split(rng)
 
     config.ckpt = config.output_dir if osp.exists(config.output_dir) else None
+    config.ckpt='viper_rl_data/checkpoints/dmc_videogpt_l4_s4'
 
     if is_master_process:
         wandb.init(project='viper_rl', config=config,
